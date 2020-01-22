@@ -9,11 +9,11 @@
 int main( int argc, char **argv )
 {
 
-	int			i;
+	int			i, j, k;
 	FILE			*fp;
 	float			u, var;
 	unsigned char	image[ROWS][COLUMNS];
-  	char			*ifile, *ofile, ch;
+  	char			*ifile;
 	char			filename[4][50];
 
 	strcpy(filename[0], "image1.raw");
@@ -26,31 +26,60 @@ int main( int argc, char **argv )
 	//Assign each image name in filename to ifile here	
 	/* example: ifile = filename[k]; k=0,1,2,3; a loop might be needed*/
 
-
-	if (( fp = fopen( ifile, "rb" )) == NULL )
+	/* iterate though all the file names */
+	for (k = 0; k < 4; k++)
 	{
-	  fprintf( stderr, "error: couldn't open %s\n", ifile );
-	  exit( 1 );
-	}			
+		ifile = filename[k];
 
-	for ( i = 0; i < ROWS ; i++ )
-	  if ( fread( image[i], 1, COLUMNS, fp ) != COLUMNS )
-	  {
-	    fprintf( stderr, "error: couldn't read enough stuff\n" );
-	    exit( 1 );
-	  }
+		/* open file with read access */
+		if (( fp = fopen( ifile, "rb" )) == NULL )
+		{
+		fprintf( stderr, "error: couldn't open %s\n", ifile );
+		exit( 1 );
+		}			
 
-	fclose( fp );
+		/* read pixel data from file */
+		for ( i = 0; i < ROWS ; i++ )
+		if ( fread( image[i], 1, COLUMNS, fp ) != COLUMNS )
+		{
+			fprintf( stderr, "error: couldn't read enough stuff\n" );
+			exit( 1 );
+		}
 
-	//Calculate Mean for each image here
+		fclose( fp );
 
-	//Calculate Variance for each image here
+		//Calculate Mean for each image here
+		int u_sum = 0;
+		/* iterate through all the pixels */
+		for (i = 0; i < ROWS; i++)
+		{
+			for (j = 0; j < COLUMNS; j++)
+			{
+				/* cast unsigned char as integer and accumulate */
+				u_sum += (int)image[i][j];
+			}
+		}
+		/* calculate the mean */
+		u = (float)u_sum / (float)(ROWS*ROWS);
 
-	//Print mean and variance for each image
-	printf("%s: %f %f\n", ifile, u, var);
+		//Calculate Variance for each image here
+		float var_sum = 0;
+		/* iterate through all the pixels */
+		for (i = 0; i < ROWS; i++)
+		{
+			for (j = 0; j < COLUMNS; j++)
+			{
+				/* cast as float and perform operation */
+				var_sum += ((float)image[i][j] - u) * ((float)image[i][j] - u);
+			}
+		}
+		/* calculate variance */
+		var = var_sum / (float)((ROWS * ROWS) - 1);
 
-	printf("Press any key to exit: ");
-	gets ( &ch );
+		//Print mean and variance for each image
+		printf("%s: {u=%f, var=%f}\n", ifile, u, var);
+
+	}
 
 	return 0;
 }
