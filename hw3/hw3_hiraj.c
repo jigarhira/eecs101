@@ -18,7 +18,7 @@ int main( int argc, char **argv )
 	FILE			*fp;
 	char			*ifile, *ofile;
 	unsigned char	image[ROWS][COLUMNS], bimage[ROWS][COLUMNS], head[32];
-	char			filename[9][50], ch;
+	char			filename[9][50];
 	float			xbar, ybar;
 
 	strcpy(filename[0], "image1.raw");
@@ -33,6 +33,11 @@ int main( int argc, char **argv )
 	header ( ROWS, COLUMNS, head );
 
 	printf("Filename: Threshold Area X Y\n");
+
+	/* Set threshold values */
+	threshold[0] = 138;
+	threshold[1] = 162;
+	threshold[2] = 47;
 
 	for ( k = 0; k < 3; k ++)
 	{
@@ -60,10 +65,36 @@ int main( int argc, char **argv )
 		/* Convert each image into binary image with its respective threshold value，
 		compute the center of same image，
 		and mark the center of same image*/
-		
-		
-		
-		
+
+		/* Iterate through all the pixels in the original images */
+		for (i = 0; i < ROWS; i++)
+		{
+			for (j = 0; j < COLUMNS; j++)
+			{
+				/* generate binary image */
+				if (image[i][j] < threshold[k])
+				{
+					bimage[i][j] = 255;
+					A++;
+					xbar += (float)j;
+					ybar += (float)i;
+				} else {
+					bimage[i][j] = 0;
+				}
+			}
+		}
+
+		xbar = xbar / (float)A;
+		ybar = ybar / (float)A;
+
+		/* Create cross at center */
+		for (int a = -4; a < 5; a++)
+		{
+			for (int b = -4; b < 5; b++)
+			{
+				bimage[((int)ybar) + a][((int)xbar) + b] = 128;
+			}
+		}
 		
 		/* Save the binary image */			
 		ofile = filename[3*k+1];
