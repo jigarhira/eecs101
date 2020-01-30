@@ -95,6 +95,8 @@ int main( int argc, char **argv )
 				bimage[((int)ybar) + a][((int)xbar) + b] = 128;
 			}
 		}
+
+		ybar = ROWS - ybar;	/* change the origin to the bottom left corner */
 		
 		/* Save the binary image */			
 		ofile = filename[3*k+1];
