@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define ROWS   		 		 128
-#define COLS				 128
+#define ROWS   		 		 480
+#define COLS				 640
 
 void clear( unsigned char image[][COLS] );
 void header( int row, int col, unsigned char head[32] );
@@ -18,9 +18,9 @@ int main( int argc, char **argv )
 	
 	/* Example to show how to do format conversion */
 	/* Input image file */
-	ifile = "../hw3/image3.raw";
+	ifile = "../hw4/image2.raw";
 	/* Output image file */
-	ofile = "../hw3/image3.ras";
+	ofile = "../hw4/image2.ras";
 
 	clear(image);
 
