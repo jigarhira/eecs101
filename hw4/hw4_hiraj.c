@@ -30,7 +30,7 @@ int main( int argc, char **argv )
 							{1, 2, 1}
 						};
 
-	threshold[0] = 70;
+	threshold[0] = 40;
 	threshold[1] = 10;
 	threshold[2] = 10;
 
@@ -218,7 +218,7 @@ void binary(unsigned char sgmimage[ROWS][COLUMNS], unsigned char out_image[ROWS]
 			/* compare pixel with threshold */
 			if (sgmimage[i][j] > threshold)
 			{
-				out_image[i][j] = 1;
+				out_image[i][j] = 255;
 			}
 			else
 			{
