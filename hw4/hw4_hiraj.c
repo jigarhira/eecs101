@@ -5,16 +5,34 @@
 #define ROWS		(int)480
 #define COLUMNS		(int)640
 
+void sobel(unsigned char in_image[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int operator[3][3], int *max);
+void sgm(unsigned char ximage[ROWS][COLUMNS], unsigned char yimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int *max);
+void binary(unsigned char sgmimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int threshold);
 void clear( unsigned char image[][COLUMNS] );
 void header( int row, int col, unsigned char head[32] );
 
 int main( int argc, char **argv )
 {
 
-	int				i, j, k, threshold[3], max[3], x, y, s;
+	int				i, k, threshold[3], max[3];
 	FILE			*fp;
-	unsigned char	image[ROWS][COLUMNS], ximage[ROWS][COLUMNS], yimage[ROWS][COLUMNS], head[32];
-	char			filename[6][50], ifilename[50], ch;
+	unsigned char	image[ROWS][COLUMNS], ximage[ROWS][COLUMNS], yimage[ROWS][COLUMNS], sgmimage[ROWS][COLUMNS], bimage[ROWS][COLUMNS], head[32];
+	char			filename[6][50], ifilename[50];
+
+	int sobel_x[3][3] = {
+							{-1, 0, 1},
+							{-2, 0, 2},
+							{-1, 0, 1}
+						};
+	int sobel_y[3][3] = {
+							{-1, -2, -1},
+							{0, 0, 0},
+							{1, 2, 1}
+						};
+
+	threshold[0] = 70;
+	threshold[1] = 10;
+	threshold[2] = 10;
 
 	strcpy( filename[0], "image1" );
 	strcpy( filename[1], "image2" );
@@ -48,8 +66,18 @@ int main( int argc, char **argv )
 
 		/* Compute Gx, Gy, SGM, find out the maximum and normalize*/
 		
+		/* Gx */
+		sobel(image, ximage, sobel_x, &max[0]);
 		
-		
+		/* Gy */
+		sobel(image, yimage, sobel_y, &max[1]);
+
+		/* SGM */
+		sgm(ximage, yimage, sgmimage, &max[2]);
+
+		/* Binary */
+		binary(sgmimage, bimage, threshold[k]);
+
 
 		/* Write Gx to a new image*/
 		strcpy( ifilename, filename[k] );
@@ -59,11 +87,7 @@ int main( int argc, char **argv )
 		  exit( 1 );
 		}
 		fwrite( head, 4, 8, fp );
-		
-		
-		
-		
-		
+		for ( i = 0 ; i < ROWS ; i++ ) fwrite( ximage[i], 1, COLUMNS, fp );	
 	    fclose( fp );
 					
 		/* Write Gy to a new image */
@@ -74,11 +98,8 @@ int main( int argc, char **argv )
 		  exit( 1 );
 		}
 		fwrite( head, 4, 8, fp );
-	
-	
+		for ( i = 0 ; i < ROWS ; i++ ) fwrite( yimage[i], 1, COLUMNS, fp );		
 		fclose( fp );
-
-		
 
 		/* Write SGM to a new image */
 		strcpy( ifilename, filename[k] );
@@ -88,13 +109,8 @@ int main( int argc, char **argv )
 		  exit( 1 );
 		}
 		fwrite( head, 4, 8, fp );
-	
-	
-	
+		for ( i = 0 ; i < ROWS ; i++ ) fwrite( sgmimage[i], 1, COLUMNS, fp );	
 		fclose( fp );
-		
-		
-		/* Compute the binary image */
 		
 		/* Write the binary image to a new image */
 		strcpy( ifilename, filename[k] );
@@ -104,17 +120,114 @@ int main( int argc, char **argv )
 		  exit( 1 );
 		}
 		fwrite( head, 4, 8, fp );
-
+		for ( i = 0 ; i < ROWS ; i++ ) fwrite( bimage[i], 1, COLUMNS, fp );
 		fclose( fp );
 
 		printf( "%d %d %d\n", max[0], max[1], max[2] );
 
 	}
 
-	printf( "Press any key to exit: " );
-	gets( &ch );
 	return 0;
 }
+
+
+void sobel(unsigned char in_image[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int operator[3][3], int *max)
+{
+	/* iterate through the pixels excluding the border */
+	int i, j, a, b, sobel_sum;	/* used for convolution */
+	float norm;	/* normalizing factor */
+	int image_int[ROWS][COLUMNS];	/* int image used to save unnormalized image */
+
+	/* reset max */
+	*max = 0;
+
+	for (i = 1; i < (ROWS - 1); i++) {
+		for (j = 1; j < (COLUMNS - 1); j++) {
+			/* iterate through the operator */
+			sobel_sum = 0;
+			for (a = -1; a < 2; a++) {
+				for (b = -1; b < 2; b++) {
+					sobel_sum += in_image[i + a][j + b] * operator[a + 1][b + 1];
+				}
+			}
+			/* save the raw value */
+			image_int[i][j] = sobel_sum;
+			
+			/* find the maximum */
+			if (sobel_sum > *max) {
+				*max = sobel_sum;
+			}
+		}
+	}
+
+	/* calculate the normalizing factor */
+	norm = 255.0 / (float)(*max);
+	
+	/* normalize the image */
+	for (i = 0; i < ROWS; i++) {
+		for (j = 0; j < COLUMNS; j++) {
+			out_image[i][j] = (unsigned char)(norm * (float)abs(image_int[i][j]));
+		}
+	}
+}
+
+
+void sgm(unsigned char ximage[ROWS][COLUMNS], unsigned char yimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int *max)
+{
+	/* iterate through the pixels */
+	int i, j;	/* used for convolution */
+	float norm;	/* normalizing factor */
+	int image_int[ROWS][COLUMNS];	/* int image used to save unnormalized image */
+
+	/* reset max */
+	*max = 0;
+
+	for (i = 0; i < ROWS; i++) {
+		for (j = 0; j < COLUMNS; j++) {
+			/* save the raw value of sgm */
+			image_int[i][j] = (ximage[i][j] * ximage[i][j]) + (yimage[i][j] * yimage[i][j]);
+			
+			/* find the maximum */
+			if (image_int[i][j] > *max) {
+				*max = image_int[i][j];
+			}
+		}
+	}
+
+	/* calculate the normalizing factor */
+	norm = 255.0 / (float)(*max);
+	
+	/* normalize the image */
+	for (i = 0; i < ROWS; i++) {
+		for (j = 0; j < COLUMNS; j++) {
+			out_image[i][j] = (unsigned char)(norm * (float)abs(image_int[i][j]));
+		}
+	}
+}
+
+
+void binary(unsigned char sgmimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int threshold)
+{
+	int i, j;
+
+	/* iterate through the image pixels */
+	for (i = 0; i < ROWS; i++)
+	{
+		for (j = 0; j < COLUMNS; j++)
+		{
+			/* compare pixel with threshold */
+			if (sgmimage[i][j] > threshold)
+			{
+				out_image[i][j] = 1;
+			}
+			else
+			{
+				out_image[i][j] = 0;
+			}
+		}
+	}
+}
+
 
 void clear( unsigned char image[][COLUMNS] )
 {
