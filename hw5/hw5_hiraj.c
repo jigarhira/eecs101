@@ -1,187 +1,217 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <string.h>
 
-#define ROWS	480
-#define COLS	640
-#define PI 3.14159265358979323846
+#define ROWS		(int)480
+#define COLUMNS		(int)640
 
-#define sqr(x)	((x)*(x))
-
-
-
-
-void clear( unsigned char image[][COLS] );
+void sobel(unsigned char in_image[ROWS][COLUMNS], int out_image[ROWS][COLUMNS], int operator[3][3], int *max);
+void sgm(int ximage[ROWS][COLUMNS], int yimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int *max);
+void binary(unsigned char sgmimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int threshold);
+void clear( unsigned char image[][COLUMNS] );
+void clear_int(int image[][COLUMNS]);
 void header( int row, int col, unsigned char head[32] );
 
-int main( int argc, char** argv )
+int main( int argc, char **argv )
 {
-	int				i,j, sgmmax;
-	// localmax: number in the three bucket of voting array corrsponding to three local maxima
-	// index[3][2]: used for store rho and theta
-	int				dedx, dedy, sgm, localmax[3] = {0, 0, 0}, index[3][2] = { 0, 0, 0, 0, 0, 0 }, ma;
-	// voting; voting array
-	int				sgm_threshold, hough_threshold, voting[][];
-	FILE*			fp;
-	unsigned char	image[ROWS][COLS], simage[ROWS][COLS], sgmimage[ROWS][COLS], bimage[ROWS][COLS], head[32];
-	char			filename[50], ifilename[50];
-	float           theta, rho;
-	
-	clear(simage);
-	strcpy ( filename, "image.raw");
-	memset ( voting, 0, sizeof(int) * 180 * 400 );
-	header(ROWS, COLS, head);
-	 
+
+	int				i, threshold[3], max[3];
+	FILE			*fp;
+	int				ximage[ROWS][COLUMNS], yimage[ROWS][COLUMNS];
+	unsigned char	image[ROWS][COLUMNS], sgmimage[ROWS][COLUMNS], bimage[ROWS][COLUMNS], head[32];
+	char			filename[6][50], ifilename[50];
+
+	int sobel_x[3][3] = {
+							{-1, 0, 1},
+							{-2, 0, 2},
+							{-1, 0, 1}
+						};
+	int sobel_y[3][3] = {
+							{-1, -2, -1},
+							{0, 0, 0},
+							{1, 2, 1}
+						};
+
+	threshold[0] = 40;
+
+	strcpy( filename[0], "image" );
+	header ( ROWS, COLUMNS, head );
+
+
+	printf( "Maximum of Gx, Gy, SGM\n" );
+
+	clear_int( ximage );
+	clear_int( yimage );
+	clear(sgmimage);
+	clear(bimage);
 
 	/* Read in the image */
-	if (!( fp = fopen(filename, "rb" ) ))
+	strcpy( ifilename, filename[0] );
+	if (( fp = fopen( strcat(ifilename, ".raw"), "rb" )) == NULL )
 	{
-		fprintf( stderr, "error: couldn't open %s\n", argv[1]);
-		exit(1);
-	}
-
-	for ( i = 0 ; i < ROWS ; i++ )
-		if (!( COLS == fread( image[i], sizeof(char), COLS, fp ) ))
+		fprintf( stderr, "error: couldn't open %s\n", ifilename );
+		exit( 1 );
+	}			
+	for ( i = 0; i < ROWS ; i++ )
+		if ( fread( image[i], sizeof(char), COLUMNS, fp ) != COLUMNS )
 		{
-			fprintf( stderr, "error: couldn't read %s\n", argv[1] );
-			exit(1);
+		fprintf( stderr, "error: couldn't read enough stuff\n" );
+		exit( 1 );
 		}
-	fclose(fp);
+	fclose( fp );
 
+	max[0] = 0; //maximum of Gx
+	max[1] = 0; //maximum of Gy
+	max[2] = 0; //maximum of SGM
 
-
-
-    /* Compute SGM */
-
-
-
-
+	/* Compute Gx, Gy, SGM, find out the maximum and normalize*/
 	
-
-	/* build up voting array */
-
-
-
+	/* Gx */
+	sobel(image, ximage, sobel_x, &max[0]);
 	
+	/* Gy */
+	sobel(image, yimage, sobel_y, &max[1]);
 
+	/* SGM */
+	sgm(ximage, yimage, sgmimage, &max[2]);
+
+	/* Binary */
+	binary(sgmimage, bimage, threshold[0]);
+
+
+	/* Write SGM to a new image */
+	strcpy( ifilename, filename[0] );
+	if (!( fp = fopen( strcat( ifilename, "-s.ras" ), "wb" ) ))
+	{
+		fprintf( stderr, "error: could not open %s\n", ifilename );
+		exit( 1 );
+	}
+	fwrite( head, 4, 8, fp );
+	for ( i = 0 ; i < ROWS ; i++ ) fwrite( sgmimage[i], 1, COLUMNS, fp );	
+	fclose( fp );
 	
-
-	/* Save SGM to an image */
-	strcpy(filename, "image");
-	if (!(fp = fopen(strcat(filename, "-sgm.ras"), "wb")))
+	/* Write the binary image to a new image */
+	strcpy( ifilename, filename[0] );
+	if (!( fp = fopen( strcat( ifilename, "-b.ras" ), "wb" ) ))
 	{
-		fprintf(stderr, "error: could not open %s\n", filename);
-		exit(1);
+		fprintf( stderr, "error: could not open %s\n", ifilename );
+		exit( 1 );
 	}
-	fwrite(head, 4, 8, fp);
-	for (i = 0; i < ROWS; i++)
-		fwrite(simage[i], sizeof(char), COLUMNS, fp);
-	fclose(fp);
+	fwrite( head, 4, 8, fp );
+	for ( i = 0 ; i < ROWS ; i++ ) fwrite( bimage[i], 1, COLUMNS, fp );
+	fclose( fp );
 
+	printf( "%d %d %d\n", max[0], max[1], max[2] );
 
-	/* Compute the binary image */
-
-
-
-
-
-
-	/* Save the thresholded SGM to an image */
-	strcpy(filename, "image");
-	if (!(fp = fopen(strcat(filename, "-binary.ras"), "wb")))
-	{
-		fprintf(stderr, "error: could not open %s\n", filename);
-		exit(1);
-	}
-	fwrite(head, 4, 8, fp);
-	for (i = 0; i < ROWS; i++)
-		fwrite(simage[i], sizeof(char), COLUMNS, fp);
-	fclose(fp);
-
-
-
-
-	/* Save original voting array to an image */
-	strcpy(filename, "image");
-	header('depends on size of your voting array', 'depends on size of your voting array', head);
-	if (!(fp = fopen(strcat(filename, "-voting_array.ras"), "wb")))
-	{
-		fprintf(stderr, "error: could not open %s\n", filename);
-		exit(1);
-	}
-	fwrite(head, 4, 8, fp);
-
-	for (i = 0; i < 'depends on size of your voting array'; i++)
-		fwrite(simage[i], sizeof(char), 'depends on size of your voting array', fp);
-	fclose(fp);
-
-	/* Threshold the voting array */
-
-
-
-
-
-
-
-
-
-	/* Write the thresholded voting array to a new image */
-	strcpy(filename, "image");
-	header('depends on size of your voting array', 'depends on size of your voting array', head);
-	if (!(fp = fopen(strcat(filename, "-voting_array.ras"), "wb")))
-	{
-		fprintf(stderr, "error: could not open %s\n", filename);
-		exit(1);
-	}
-	fwrite(head, 4, 8, fp);
-
-	for (i = 0; i < 'depends on size of your voting array'; i++)
-		fwrite(simage[i], sizeof(char), 'depends on size of your voting array', fp);
-	fclose(fp);
-
-
-
-
-
-
-	printf("Hough threshold: %d\n", hough_threshold);
-	printf("%d %d %d\n%d %d %d\n%d %d %d\n", index[0][0], index[0][1], voting_max[0],
-											index[1][0], index[1][1] , voting_max[1],
-											index[2][0], index[2][1], voting_max[2]);
-
-	/* Reconstruct an image from the voting array */
-
-
-
-
-
-
-
-	/* Write the reconstructed figure to an image */
-	strcpy(filename, "image");
-	header(ROWS, COLUMNS, head);
-	if (!(fp = fopen(strcat(filename, "-reconstructed_image.ras"), "wb")))
-	{
-		fprintf(stderr, "error: could not open %s\n", filename);
-		exit(1);
-	}
-	fwrite(head, 4, 8, fp);
-	for (i = 0; i < ROWS; i++)
-		fwrite(simage[i], sizeof(char), COLUMNS, fp);
-	fclose(fp);
-
-	printf("Press any key to exit: ");
-	gets(&ch);
 
 	return 0;
 }
 
-void clear( unsigned char image[][COLS] )
+
+void sobel(unsigned char in_image[ROWS][COLUMNS], int out_image[ROWS][COLUMNS], int operator[3][3], int *max)
+{
+	/* iterate through the pixels excluding the border */
+	int i, j, a, b, sobel_sum;	/* used for convolution */
+
+	/* reset max */
+	*max = 0;
+
+	for (i = 1; i < (ROWS - 1); i++) {
+		for (j = 1; j < (COLUMNS - 1); j++) {
+			/* iterate through the operator */
+			sobel_sum = 0;
+			for (a = -1; a < 2; a++) {
+				for (b = -1; b < 2; b++) {
+					sobel_sum += in_image[i + a][j + b] * operator[a + 1][b + 1];
+				}
+			}
+			/* save the raw value */
+			out_image[i][j] = sobel_sum;
+			
+			/* find the maximum */
+			if (sobel_sum > *max) {
+				*max = sobel_sum;
+			}
+		}
+	}
+
+}
+
+
+void sgm(int ximage[ROWS][COLUMNS], int yimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int *max)
+{
+	/* iterate through the pixels */
+	int i, j;	/* used for convolution */
+	float norm;	/* normalizing factor */
+	int image_int[ROWS][COLUMNS];	/* int image used to save unnormalized image */
+
+	/* reset max */
+	*max = 0;
+
+	for (i = 0; i < ROWS; i++) {
+		for (j = 0; j < COLUMNS; j++) {
+			/* save the raw value of sgm */
+			image_int[i][j] = (ximage[i][j] * ximage[i][j]) + (yimage[i][j] * yimage[i][j]);
+			
+			/* find the maximum */
+			if (image_int[i][j] > *max) {
+				*max = image_int[i][j];
+			}
+		}
+	}
+
+	/* calculate the normalizing factor */
+	norm = 255.0 / (float)(*max);
+	
+	/* normalize the image */
+	for (i = 0; i < ROWS; i++) {
+		for (j = 0; j < COLUMNS; j++) {
+			out_image[i][j] = (unsigned char)(norm * (float)abs(image_int[i][j]));
+		}
+	}
+}
+
+
+void binary(unsigned char sgmimage[ROWS][COLUMNS], unsigned char out_image[ROWS][COLUMNS], int threshold)
+{
+	int i, j;
+
+	/* iterate through the image pixels */
+	for (i = 0; i < ROWS; i++)
+	{
+		for (j = 0; j < COLUMNS; j++)
+		{
+			/* compare pixel with threshold */
+			if (sgmimage[i][j] > threshold)
+			{
+				out_image[i][j] = 255;
+			}
+			else
+			{
+				out_image[i][j] = 0;
+			}
+		}
+	}
+}
+
+
+void clear( unsigned char image[][COLUMNS] )
 {
 	int	i,j;
 	for ( i = 0 ; i < ROWS ; i++ )
-		for ( j = 0 ; j < COLS ; j++ ) image[i][j] = 0;
+		for ( j = 0 ; j < COLUMNS ; j++ ) image[i][j] = 0;
+}
+
+void clear_int(int image[][COLUMNS])
+{
+	int i, j;
+	for (i = 0; i < ROWS; i ++)
+	{
+		for (j = 0; j < COLUMNS; j++)
+		{
+			image[i][j] = 0;
+		}
+	}
 }
 
 void header( int row, int col, unsigned char head[32] )
@@ -239,4 +269,3 @@ void header( int row, int col, unsigned char head[32] )
 	*(p + 7) = 0xf8;
 */
 }
-

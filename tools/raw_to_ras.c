@@ -18,9 +18,9 @@ int main( int argc, char **argv )
 	
 	/* Example to show how to do format conversion */
 	/* Input image file */
-	ifile = "../hw4/image2.raw";
+	ifile = "../hw5/image.raw";
 	/* Output image file */
-	ofile = "../hw4/image2.ras";
+	ofile = "../hw5/image.ras";
 
 	clear(image);
 
