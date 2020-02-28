@@ -42,7 +42,7 @@ int main( int argc, char **argv )
 	// r, a, m, s
 	generate(image1, 50, 0.5, 1, 0, 0, 1);
 	generate(image2, 50, 0.5, 1, (1.0/sqrt(3)), (1.0/sqrt(3)), (1.0/sqrt(3)));
-	generate(image3, 50, 0.5, 1, 1, 0, 0.000001);
+	generate(image3, 50, 0.5, 1, 1, 0, 0.000000000001);
 	generate(image4, 10, 0.5, 1, 0, 0, 1);
 	generate(image5, 100, 0.5, 1, 0, 0, 1);
 	generate(image6, 50, 0.1, 1, 0, 0, 1);
@@ -207,8 +207,14 @@ void generate(unsigned char image[ROWS][COLS], float r, float a, float m, float 
 					// calculate L
 					L = (L_l * a) + (L_s * (1 - a));
 
-					// remap L (0 -> 1) to pixel (0 -> 255)
-					image[i][j] = L * 255;		
+					// remap L (0 -> 1) to pixel (0 -> 255)	
+					if (L >= 0.0)
+					{
+						image[i][j] = L * 255;
+					} else if (L > 1.0)
+					{
+						image[i][j] = 255;
+					}
 				}
 			}
 		}
